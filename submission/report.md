@@ -3,7 +3,7 @@
 **Họ tên:** Trần Quang Trọng - 2A202601461  
 **Cohort:** A20-K3
 
-> Trạng thái: Bản nháp, sẽ bổ sung kết quả Bước 2 và Bước 3 trước khi nộp.
+> Trạng thái: Đã hoàn thành Bước 1 và Bước 2; sẽ bổ sung kết quả Bước 3 trước khi nộp.
 
 ## 1. Kết quả thực nghiệm Bước 1
 
@@ -34,3 +34,16 @@ Extra Trees đạt accuracy **0.6860** và weighted F1-score **0.6841**. Stackin
 ## 2. Khó khăn và hướng giải quyết
 
 Khó khăn chính là không mô hình nào vượt 0.70 dù đã thử nhiều cấu hình. Em so sánh công bằng trên cùng tập eval, giữ model tốt nhất và không đưa dữ liệu eval vào huấn luyện. Ngoài ra, MLflow 2.13 thiếu `pkg_resources` với setuptools mới nên em cố định `setuptools<82`; cổng 5000 bị macOS chiếm nên chuyển MLflow UI sang cổng 5050; Voting gặp lỗi multiprocessing nên em giới hạn `n_jobs=1` và chạy lại thành công.
+
+## 3. Kết quả Bước 2 – CI/CD và triển khai AWS
+
+Em dùng DVC với Amazon S3 làm remote và EC2 Ubuntu 24.04 Free Tier làm máy phục vụ. GitHub Actions đã chạy thành công đủ bốn job `Unit Test → Train → Eval → Deploy`; eval gate dùng ngưỡng mentor chấp nhận là 0.68. Lần chạy gần nhất có commit `6af3b30` và trạng thái Success. Model, metrics và report đã được upload lên S3; EC2 restart service tự động qua SSH.
+
+Kết quả kiểm tra API sau deploy:
+
+```text
+GET  /health  -> {"status":"ok"}
+POST /predict -> {"prediction":0,"label":"thap"}
+```
+
+Model đạt accuracy 0.6860, cao hơn ngưỡng 0.68 nên được triển khai. Security Group mở cổng 8000 giới hạn cho IP máy em để kiểm tra endpoint.
