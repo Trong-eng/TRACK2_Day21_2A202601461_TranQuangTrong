@@ -1,0 +1,5 @@
+[core]
+    remote = myremote
+['remote "myremote"']
+    url = s3://mlops-wine-2a202601461-tranquangtrong/dvc
+    region = ap-southeast-1
