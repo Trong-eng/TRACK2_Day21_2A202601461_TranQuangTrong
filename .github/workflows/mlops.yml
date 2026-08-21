@@ -168,13 +168,14 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            sudo systemctl restart mlops-serve
-            for attempt in 1 2 3 4 5; do
+            # Khong cho SSH action cho restart block trong luc service nap model lon.
+            sudo systemctl restart --no-block mlops-serve
+            for attempt in $(seq 1 60); do
               if curl --fail --silent http://localhost:8000/health; then
                 echo "Health check passed."
                 exit 0
               fi
-              echo "Waiting for API (attempt $attempt/5)..."
+              echo "Waiting for API (attempt $attempt/60)..."
               sleep 5
             done
             echo "Health check failed."
