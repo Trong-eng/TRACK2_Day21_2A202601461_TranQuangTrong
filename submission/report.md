@@ -3,13 +3,13 @@
 **Họ tên:** Trần Quang Trọng - 2A202601461  
 **Cohort:** A20-K3
 
-> Trạng thái: Đã hoàn thành Bước 1 và Bước 2; sẽ bổ sung kết quả Bước 3 trước khi nộp.
+> Trạng thái: Bước 1 và Bước 2 đã hoàn thành. Bước 3 đã chạy xanh Unit Test/Train/Eval, nhưng Deploy còn lỗi khởi động service trên EC2.
 
 ## 1. Kết quả thực nghiệm Bước 1
 
 Em huấn luyện trên `train_phase1.csv` (2.998 mẫu), đánh giá trên tập độc lập `eval.csv` (500 mẫu) và dùng MLflow ghi lại siêu tham số, accuracy, weighted F1-score cùng model artifact. Random Forest được giữ làm baseline; sau đó em mở rộng `train.py` bằng tham số `model_type` để thử nhiều thuật toán và ensemble (Bonus 2).
 
-| Nhóm thực nghiệm | Runs thành công | Accuracy tốt nhất |
+| Thực nghiệm | Runs thành công | Accuracy tốt nhất |
 |---|---:|---:|
 | Random Forest | 13 | 0.684 |
 | Gradient Boosting | 3 | 0.632 |
@@ -37,7 +37,7 @@ Khó khăn chính là không mô hình nào vượt 0.70 dù đã thử nhiều 
 
 ## 3. Kết quả Bước 2 – CI/CD và triển khai AWS
 
-Em dùng DVC với Amazon S3 làm remote và EC2 Ubuntu 24.04 Free Tier làm máy phục vụ. GitHub Actions đã chạy thành công đủ bốn job `Unit Test → Train → Eval → Deploy`; eval gate dùng ngưỡng mentor chấp nhận là 0.68. Lần chạy gần nhất có commit `6af3b30` và trạng thái Success. Model, metrics và report đã được upload lên S3; EC2 restart service tự động qua SSH.
+Em dùng DVC với Amazon S3 làm remote và EC2 Ubuntu 24.04 Free Tier làm máy phục vụ. Ở lần chạy thành công của Bước 2, GitHub Actions chạy đủ bốn job `Unit Test → Train → Eval → Deploy`; eval gate dùng ngưỡng mentor chấp nhận là 0.68. Model, metrics và dữ liệu DVC đã được upload lên S3.
 
 Kết quả kiểm tra API sau deploy:
 
@@ -46,4 +46,10 @@ GET  /health  -> {"status":"ok"}
 POST /predict -> {"prediction":0,"label":"thap"}
 ```
 
-Model đạt accuracy 0.6860, cao hơn ngưỡng 0.68 nên được triển khai. Security Group mở cổng 8000 giới hạn cho IP máy em để kiểm tra endpoint.
+Model đạt accuracy 0.6860, cao hơn ngưỡng 0.68 nên được phép triển khai. Security Group mở cổng 8000 giới hạn cho IP máy em để kiểm tra endpoint.
+
+### 3.1. Kết quả Bước 3 – dữ liệu phase 2 và lỗi Deploy
+
+Sau khi bổ sung dữ liệu phase 2, Unit Test, Train và Eval đều thành công; Deploy thất bại ở commit `1435c1f`. Log ghi nhận `systemctl restart --no-block mlops-serve`, sau đó `/health` không trả lời qua 15 lần kiểm tra và SSH action báo `remote command exited without exit status or exit signal`. Hai ảnh minh chứng là `screenshots/07_github_actions_deploy_failure_summary.png` và `screenshots/08_github_actions_deploy_health_timeout.png`.
+
+Nguyên nhân đã được xác nhận bằng EC2 system console: kernel ghi `Out of memory: Killed process ... (python)` hai lần, với `anon-rss` khoảng 654--655 MiB. Model Extra Trees có kích thước khoảng 215 MB; khi đo trên máy local, riêng thao tác `joblib.load()` dùng khoảng 533 MiB RAM. Do EC2 là `t3.micro` với khoảng 1 GiB RAM, Linux OOM killer đã dừng tiến trình Python khi service nạp model. Vì vậy `/health` không lên và SSH action báo mất trạng thái remote command. Đây là lỗi giới hạn bộ nhớ của VM khi triển khai model lớn, không phải lỗi eval gate hay lỗi kết nối S3.
